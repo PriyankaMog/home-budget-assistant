@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Budget Assistant</title>
+<style>
+:root{--bg:#0f1b2d;--panel:#16263d;--ink:#eaf2ff;--mute:#8fa6c4;--accent:#27c4f5;--user:#2a4a73}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px system-ui,sans-serif;display:flex;justify-content:center}
+.app{width:100%;max-width:720px;height:100vh;display:flex;flex-direction:column;padding:16px}
+header{display:flex;align-items:center;gap:12px;padding-bottom:12px}
+.ring{width:40px;height:40px;border-radius:50%;border:4px solid var(--accent);box-shadow:0 0 14px var(--accent)}
+h1{font-size:20px;margin:0}small{color:var(--mute)}
+#log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:8px 0}
+.b{max-width:85%;padding:10px 14px;border-radius:16px;line-height:1.4}
+.u{align-self:flex-end;background:var(--user)}.a{align-self:flex-start;background:var(--panel)}
+.tool{display:block;margin-top:6px;font:12px ui-monospace,monospace;color:var(--accent)}
+.card{align-self:flex-start;background:var(--panel);border:1px solid var(--accent);border-radius:16px;padding:14px;width:90%}
+.card h3{margin:0 0 8px;font-size:16px}.row{display:flex;justify-content:space-between;padding:3px 0;color:var(--mute)}
+.row b{color:var(--ink)}.tip{margin-top:8px;padding:8px;border-radius:10px;background:#0f1b2d}
+.chips{display:flex;gap:8px;flex-wrap:wrap;padding:6px 0}
+.chip{background:transparent;border:1px solid var(--mute);color:var(--ink);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:13px}
+.chip:hover{border-color:var(--accent)}
+form{display:flex;gap:8px}input{flex:1;padding:12px;border-radius:12px;border:1px solid #2b4568;background:var(--panel);color:var(--ink);font-size:16px}
+button.s,button.m{border:0;border-radius:12px;padding:0 16px;font-size:16px;cursor:pointer}
+button.s{background:var(--accent);color:#06222e;font-weight:600}button.m{background:var(--panel);color:var(--ink);border:1px solid #2b4568}
+button.on{background:#c0392b!important}
+</style></head><body><div class="app">
+<header><div class="ring"></div><div><h1>Home Budget Assistant</h1><small>Voice simulator powered by an MCP server</small></div></header>
+<div id="log"></div>
+<div class="chips" id="chips"></div>
+<form id="f"><button type="button" class="m" id="mic" title="Speak">🎤</button>
+<input id="q" placeholder="Say or type something..." autocomplete="off"><button class="s">Send</button></form>
+</div>
+<script>
+const log=document.getElementById('log'),q=document.getElementById('q');
+const samples=["I spent 200 on groceries","I spent 450 on school fees","add bill electricity 1200 due 2026-11-05","what bills are due","how much did we spend this week","how can we save","give me my weekly check-in"];
+samples.forEach(s=>{const c=document.createElement('button');c.className='chip';c.type='button';c.textContent=s;c.onclick=()=>send(s);document.getElementById('chips').appendChild(c)});
+function bubble(t,cls,tool){const d=document.createElement('div');d.className='b '+cls;d.textContent=t;
+ if(tool){const s=document.createElement('span');s.className='tool';s.textContent='MCP tool called: '+tool;d.appendChild(s)}
+ log.appendChild(d);log.scrollTop=log.scrollHeight}
+function card(c){const d=document.createElement('div');d.className='card';
+ let h='<h3>Weekly family check-in</h3><div class="row"><span>Spent (7 days)</span><b>'+c.spent_7d+'</b></div>';
+ for(const [k,v] of Object.entries(c.by_category))h+='<div class="row"><span>&nbsp;&nbsp;'+k+'</span><span>'+v+'</span></div>';
+ h+='<div class="row"><span>Bills due (14 days)</span><b>'+c.bills_total+'</b></div>';
+ c.bills_due.forEach(b=>h+='<div class="row"><span>&nbsp;&nbsp;'+b.name+'</span><span>'+b.amount+' on '+b.due_date+'</span></div>');
+ h+='<div class="tip">💡 '+c.tip+'</div>';d.innerHTML=h;log.appendChild(d);log.scrollTop=log.scrollHeight}
+function speak(t){try{speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(t))}catch(e){}}
+async function send(text){if(!text.trim())return;bubble(text,'u');q.value='';
+ const r=await fetch('/chat',{method:'POST',body:JSON.stringify({text})});const j=await r.json();
+ bubble(j.reply,'a',j.tool);if(j.card)card(j.card);speak(j.reply)}
+document.getElementById('f').onsubmit=e=>{e.preventDefault();send(q.value)};
+bubble("Hi! I can track expenses and bills for your family. Tap a suggestion or use the mic.",'a');
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition,mic=document.getElementById('mic');
+if(SR){const r=new SR();r.lang='en-US';r.onresult=e=>send(e.results[0][0].transcript);r.onend=()=>mic.classList.remove('on');
+ mic.onclick=()=>{mic.classList.add('on');r.start()}}else mic.style.display='none';
+</script></body></html>
